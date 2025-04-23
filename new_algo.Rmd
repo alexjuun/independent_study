@@ -1,0 +1,72 @@
+---
+title: "simple algo"
+author: "Alex Jun"
+date: "2025-04-23"
+output: html_document
+---
+
+```{r}
+set.seed(123)
+data(iris)
+
+X        <- iris[, 1:4]
+Y        <- iris$Species
+features <- colnames(X)
+
+K <- 3  
+B <- 100    
+
+# generate all non‐empty feature subsets
+combos      <- unlist(
+  lapply(1:length(features),
+         function(m) combn(features, m, simplify = FALSE)
+  ),
+  recursive = FALSE
+)
+combo_names <- sapply(combos, paste, collapse = "+")
+
+results <- data.frame(
+  combo       = combo_names,
+  mean_acc    = NA_real_,
+  total_time  = NA_real_,
+  stringsAsFactors = FALSE
+)
+
+# Loop over all the combinations from X variables 
+for (i in seq_along(combos)) {
+  vars <- combos[[i]]
+  
+  start_time <- Sys.time()
+  
+  accs <- numeric(B)
+  for (b in seq_len(B)) {
+    km  <- kmeans(X[, vars, drop = FALSE], centers = K, nstart = 1)
+    cls <- km$cluster
+    
+    mapping <- sapply(1:K, function(cl) {
+      tbl <- table(Y[cls == cl])
+      if (length(tbl) == 0) return(NA_character_)
+      names(tbl)[which.max(tbl)]
+    })
+# Prediction    
+    pred       <- factor(mapping[cls], levels = levels(Y))
+    accs[b]    <- mean(pred == Y)
+  }
+  
+  end_time     <- Sys.time()
+  elapsed_sec  <- as.numeric(difftime(end_time, start_time, units = "secs"))
+  
+  results$mean_acc[i]   <- mean(accs)
+  results$total_time[i] <- elapsed_sec
+}
+
+results$efficiency <- results$mean_acc / results$total_time
+
+cat("\nTop 5 by mean accuracy:\n")
+print(head(results[order(-results$mean_acc), ], 5))
+
+cat("\nTop 5 by efficiency (accuracy/sec):\n")
+print(head(results[order(-results$efficiency), ], 5))
+
+```
+
