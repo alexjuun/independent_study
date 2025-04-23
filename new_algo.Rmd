@@ -70,3 +70,65 @@ print(head(results[order(-results$efficiency), ], 5))
 
 ```
 
+## Code for reordering and matchiing with true value with prediction
+```{r}
+library(clue)
+
+# 2) Build your example confusion‐matrix:
+conf_mat <- matrix(
+  c(
+    1, 2, 7,   # true = C  (predicted A,B,C)
+    1, 8, 1,   # true = B
+    9, 0, 1    # true = A
+  ),
+  nrow  = 3,
+  byrow = TRUE
+)
+rownames(conf_mat) <- c("C","B","A")
+colnames(conf_mat) <- c("A","B","C")
+
+cat("Original confusion matrix:\n")
+print(conf_mat)
+
+# 3) Solve assignment (predicted → true) to maximize correct matches
+#    We transpose so rows=predicted, cols=true for solve_LSAP
+assignment <- solve_LSAP(t(conf_mat), maximum = TRUE)
+
+# Build a named vector: names = predicted labels, values = matched true labels
+mapping <- setNames(rownames(conf_mat)[assignment],
+                    colnames(conf_mat))
+
+cat("\nMapping (predicted → true):\n")
+print(mapping)
+# e.g. mapping["A"] == "A", mapping["B"] == "B", etc.
+
+# 4a) Reorder the confusion‐matrix rows so they follow the true‐label order A,B,C
+#    Find the order of predicted labels that map to A,B,C in turn:
+pred_order <- names(mapping)[order(mapping)]
+conf_mat_reordered <- conf_mat[pred_order, , drop = FALSE]
+
+cat("\nReordered confusion matrix (rows A,B,C):\n")
+print(conf_mat_reordered)
+
+
+# 4b) If instead you have raw vectors of true vs. predicted labels, you can relabel:
+relabel_clusters <- function(true_lbls, pred_lbls) {
+  cm     <- table(true = true_lbls, pred = pred_lbls)
+  assign <- solve_LSAP(t(cm), maximum = TRUE)
+  map    <- setNames(rownames(cm)[assign], colnames(cm))
+  # Map each prediction to its matched true label
+  factor(map[as.character(pred_lbls)], levels = rownames(cm))
+}
+
+# --- Demo of relabel_clusters() ---
+set.seed(42)
+true_vec      <- rep(c("A","B","C"), each = 10)
+predicted_vec <- sample(c("C","B","A"), size = length(true_vec), replace = TRUE)
+
+matched_vec   <- relabel_clusters(true_vec, predicted_vec)
+
+cat("\nFirst 10 raw predictions:     ", predicted_vec[1:10], "\n")
+cat("First 10 relabelled to truth:", as.character(matched_vec[1:10]), "\n")
+
+
+```
